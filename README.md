@@ -85,3 +85,6 @@ Para uma versão pública/produção, recomendo migrar a autenticação para um 
 - proteção contra chamadas não autorizadas.
 
 O frontend não deve ser considerado uma barreira de segurança.
+
+
+API confirmada: a URL do Google Apps Script já está configurada no `index.html`.

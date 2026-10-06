@@ -428,7 +428,9 @@
                 if (result.status !== 'success') throw new Error(result.message || 'Falha ao carregar os dados.');
 
                 cloudData = {
-                    units: Array.isArray(result.units) ? result.units : [],
+                    units: Array.isArray(result.units)
+                        ? result.units.map(u => typeof u === 'string' ? u : String((u && u.name) || '')).filter(Boolean)
+                        : [],
                     users: Array.isArray(result.users) ? result.users : [],
                     transactions: Array.isArray(result.transactions) ? result.transactions : [],
                     products: Array.isArray(result.products) ? result.products : []
@@ -470,7 +472,9 @@
 
         // RENDERIZAR OPÇÕES DE UNIDADES
         function renderUnitSelects() {
-            const units = getUnits();
+            const units = getUnits().map(unit =>
+                typeof unit === 'string' ? unit : String((unit && unit.name) || '')
+            ).filter(Boolean);
             const regSelect = document.getElementById('reg-unit');
             const adminRegSelect = document.getElementById('admin-reg-unit');
 
