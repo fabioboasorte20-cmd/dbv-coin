@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DBV Coin - Carteira do Desbravador</title>
+
+    <!-- Configuração PWA / Mobile -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #2563eb;
+            --secondary: #d97706;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --danger: #dc2626;
+            --purple: #7c3aed;
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --text: #1f2937;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding-bottom: 75px; }
+
+        header { background: var(--primary); color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        header h1 { font-size: 1.1rem; font-weight: bold; }
+        .btn-logout { background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+
+        .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+        .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        /* TABS E ALTERNADORES DE VISÃO */
+        .auth-toggle, .view-toggle { display: flex; margin-bottom: 16px; background: #e5e7eb; border-radius: 8px; padding: 4px; }
+        .auth-toggle button, .view-toggle button { flex: 1; background: none; border: none; padding: 8px; font-weight: bold; font-size: 0.8rem; border-radius: 6px; color: #4b5563; cursor: pointer; }
+        .auth-toggle button.active, .view-toggle button.active { background: white; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+        .balance-box { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; text-align: center; padding: 20px; border-radius: 16px; }
+        .balance-amount { font-size: 2.4rem; font-weight: 800; margin: 6px 0; color: #fbbf24; }
+
+        .admin-box { background: linear-gradient(135deg, #5b21b6, #7c3aed); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; text-align: center; }
+        .stat-card { background: rgba(255,255,255,0.15); padding: 10px; border-radius: 8px; }
+        .stat-number { font-size: 1.3rem; font-weight: bold; color: #fbbf24; }
+
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; color: white; }
+        .badge-verde { background-color: var(--success); }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: #374151; }
+        select, input { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; }
+
+        .btn-primary { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 8px; }
+        .btn-purple { background: var(--purple); }
+        .btn-danger { background: var(--danger); padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; color: white; border: none; cursor: pointer; }
+        .btn-primary:active { opacity: 0.9; }
+
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+        .list-item:last-child { border-bottom: none; }
+
+        /* GRÁFICO DE BARRAS DE DESEMPENHO */
+        .chart-bar-container { background: #e5e7eb; border-radius: 8px; height: 22px; overflow: hidden; position: relative; margin-top: 4px; }
+        .chart-bar-fill { height: 100%; border-radius: 8px; transition: width 0.6s ease-in-out; }
+
+        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); display: flex; border-top: 1px solid #e5e7eb; max-width: 480px; margin: 0 auto; z-index: 100; }
+        .nav-btn { flex: 1; text-align: center; padding: 12px 4px; background: none; border: none; color: #6b7280; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+        .nav-btn.active { color: var(--primary); border-top: 2px solid var(--primary); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>⛺ DBV Coin</h1>
+        <div id="user-info" style="font-size: 0.85rem;"></div>
+    </header>
+
+    <div class="container">
+        
+        <!-- ================= TELA DE AUTENTICAÇÃO ================= -->
+        <div id="section-auth" class="card">
+            <div class="auth-toggle">
+                <button id="tab-login-btn" class="active" onclick="toggleAuthMode('login')">Entrar</button>
+                <button id="tab-register-btn" onclick="toggleAuthMode('register')">Cadastrar-se</button>
+            </div>
+
+            <!-- FORMULÁRIO DE LOGIN -->
+            <form id="form-login">
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="login-email" required placeholder="seuemail@exemplo.com">
+                </div>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="login-password" required placeholder="******">
+                </div>
+                <button type="submit" class="btn-primary">Entrar no App</button>
+            </form>
+
+            <!-- FORMULÁRIO DE AUTOCADASTRO -->
+            <form id="form-register" style="display: none;">
+                <div class="form-group">
+                    <label>Nome Completo</label>
+                    <input type="text" id="reg-name" required placeholder="Ex.: Gabriel Silva">
+                </div>
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="reg-email" required placeholder="seuemail@exemplo.com">
+                </div>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="reg-password" required placeholder="******">
+                </div>
+                <div class="form-group">
+                    <label>Unidade</label>
+                    <select id="reg-unit"></select>
+                </div>
+                <div class="form-group">
+                    <label>Perfil no Clube</label>
+                    <select id="reg-role">
+                        <option value="desbravador">Desbravador</option>
+                        <option value="conselheiro">Conselheiro</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Criar Minha Conta</button>
+            </form>
+        </div>
+
+        <!-- ================= ÁREA RESTRITA (APÓS LOGIN) ================= -->
+        <div id="section-app" style="display: none;">
+
+            <!-- ABA 1: CARTEIRA DO DESBRAVADOR -->
+            <div id="tab-carteira" class="tab-content">
+                <div class="balance-box">
+                    <div id="wallet-username">Meu Saldo</div>
+                    <div class="balance-amount" id="user-balance">0 DBV</div>
+                    <span class="badge badge-verde" id="unit-status">Unidade Órion</span>
+                </div>
+
+                <div class="card" style="margin-top: 16px;">
+                    <h3 style="margin-bottom: 12px; font-size: 1rem;">Extrato de Movimentações</h3>
+                    <div id="tx-history"></div>
+                </div>
+            </div>
+
+            <!-- ABA 2: GRÁFICO DE DESEMPENHO E RANKING -->
+            <div id="tab-ranking" class="tab-content" style="display: none;">
+                <div class="card">
+                    <h3>📊 Ranking & Desempenho</h3>
+                    <p style="font-size: 0.8rem; color: #6b7280; margin-bottom: 12px;">
+                        Acompanhe o desempenho individual ou a média das unidades (Meta Verde: ≥100 DBV).
+                    </p>
+
+                    <div class="view-toggle">
+                        <button id="view-ind-btn" class="active" onclick="setChartViewMode('desbravador')">Por Desbravador</button>
+                        <button id="view-unit-btn" onclick="setChartViewMode('unidade')">Média por Unidade</button>
+                    </div>
+
+                    <div id="performance-chart-container"></div>
+                </div>
+            </div>
+
+            <!-- ABA 3: CANTINHO DA UNIDADE (CONSELHEIRO / ADMIN) -->
+            <div id="tab-conselheiro" class="tab-content" style="display: none;">
+                <div class="card">
+                    <h3>Avaliação da Unidade</h3>
+                    <p style="font-size: 0.8rem; color: #6b7280; margin-bottom: 16px;">Lançamento semanal no Cantinho da Unidade</p>
+
+                    <form id="eval-form">
+                        <div class="form-group">
+                            <label>Selecione o Desbravador</label>
+                            <select id="eval-member"></select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Pontualidade (Máx: 20)</label>
+                            <select id="pts-pontualidade">
+                                <option value="20">Pontual (+20 DBV)</option>
+                                <option value="10">Atrasado (+10 DBV)</option>
+                                <option value="0">Ausente (0 DBV)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Leitura Bíblica / Ano Bíblico (Máx: 30)</label>
+                            <select id="pts-biblia">
+                                <option value="30">Ano Bíblico em dia (+30 DBV)</option>
+                                <option value="10">Atrasado até 1 sem (+10 DBV)</option>
+                                <option value="0">Não leu (0 DBV)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Uniforme Completo (Máx: 10)</label>
+                            <select id="pts-uniforme">
+                                <option value="10">Completo (+10 DBV)</option>
+                                <option value="5">Incompleto (+5 DBV)</option>
+                                <option value="0">Sem uniforme (0 DBV)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Material Completo (Máx: 10)</label>
+                            <select id="pts-material">
+                                <option value="10">Completo (+10 DBV)</option>
+                                <option value="5">Incompleto (+5 DBV)</option>
+                                <option value="0">Sem material (0 DBV)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Disciplina e Civismo (Máx: 20)</label>
+                            <select id="pts-disciplina">
+                                <option value="20">Excelente (+20 DBV)</option>
+                                <option value="10">Regular (+10 DBV)</option>
+                                <option value="0">Insuficiente (0 DBV)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Ação Social / Ajuda Comunitária (Máx: 20)</label>
+                            <select id="pts-social">
+                                <option value="20">Participou integralmente (+20 DBV)</option>
+                                <option value="10">Participou parcialmente (+10 DBV)</option>
+                                <option value="0">Não participou (0 DBV)</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-primary" id="btn-submit-eval">Creditar Moedas</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ABA 4: BAZAR DOS DESBRAVADORES -->
+            <div id="tab-bazar" class="tab-content" style="display: none;">
+                <div class="card">
+                    <h3>Bazar de Recompensas</h3>
+                    <p style="font-size: 0.8rem; color: #6b7280; margin-bottom: 12px;">Catálogo oficial de prêmios</p>
+                    <div id="bazar-products-list"></div>
+                </div>
+            </div>
+
+            <!-- ABA 5: PAINEL ADMINISTRATIVO (DIRETORIA) -->
+            <div id="tab-admin" class="tab-content" style="display: none;">
+                
+                <div class="admin-box">
+                    <h3 style="font-size: 1.1rem;">📊 Visão Geral do Clube</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-total-coins">0</div>
+                            <small>Moedas em Circulação</small>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-total-users">0</div>
+                            <small>Membros Cadastrados</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CADASTRO DE UNIDADE -->
+                <div class="card">
+                    <h3>🏰 Cadastrar Nova Unidade</h3>
+                    <form id="form-admin-register-unit">
+                        <div class="form-group">
+                            <label>Nome da Unidade</label>
+                            <input type="text" id="unit-name-input" required placeholder="Ex.: Unidade Águia">
+                        </div>
+                        <button type="submit" class="btn-primary btn-purple">Adicionar Unidade</button>
+                    </form>
+
+                    <h4 style="margin-top: 16px; font-size:0.9rem; margin-bottom:8px;">Unidades Existentes:</h4>
+                    <div id="admin-units-list"></div>
+                </div>
+
+                <!-- CADASTRO DIRETO DE MEMBRO -->
+                <div class="card">
+                    <h3>➕ Cadastrar Desbravador / Membro</h3>
+                    <form id="form-admin-register-member">
+                        <div class="form-group">
+                            <label>Nome do Desbravador</label>
+                            <input type="text" id="admin-reg-name" required placeholder="Ex.: Mateus Oliveira">
+                        </div>
+                        <div class="form-group">
+                            <label>E-mail de Acesso</label>
+                            <input type="email" id="admin-reg-email" required placeholder="mateus@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Senha Inicial</label>
+                            <input type="password" id="admin-reg-pass" required value="123456">
+                        </div>
+                        <div class="form-group">
+                            <label>Unidade</label>
+                            <select id="admin-reg-unit"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Perfil no Clube</label>
+                            <select id="admin-reg-role">
+                                <option value="desbravador">Desbravador</option>
+                                <option value="conselheiro">Conselheiro</option>
+                                <option value="admin">Administrador (Diretoria)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Saldo Inicial de Moedas (DBV Coins)</label>
+                            <input type="number" id="admin-reg-balance" required value="100">
+                        </div>
+                        <button type="submit" class="btn-primary btn-purple">Cadastrar e Liberar Acesso</button>
+                    </form>
+                </div>
+
+                <!-- AJUSTE MANUAL DE SALDO -->
+                <div class="card">
+                    <h3>💰 Ajuste Manual de Saldo</h3>
+                    <form id="form-admin-adjust">
+                        <div class="form-group">
+                            <label>Selecione o Membro</label>
+                            <select id="admin-adjust-user"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantidade de Moedas (+ / -)</label>
+                            <input type="number" id="admin-adjust-amount" required placeholder="Ex.: 50 ou -30">
+                        </div>
+                        <div class="form-group">
+                            <label>Motivo / Descrição</label>
+                            <input type="text" id="admin-adjust-reason" required placeholder="Ex.: Prêmio Gincana / Correção">
+                        </div>
+                        <button type="submit" class="btn-primary btn-purple">Confirmar Ajuste</button>
+                    </form>
+                </div>
+
+                <!-- GERENCIAR BAZAR -->
+                <div class="card">
+                    <h3>🛍️ Cadastrar Item no Bazar</h3>
+                    <form id="form-admin-product">
+                        <div class="form-group">
+                            <label>Nome do Item</label>
+                            <input type="text" id="prod-name" required placeholder="Ex.: Lanterna de Camping">
+                        </div>
+                        <div class="form-group">
+                            <label>Preço em DBV Coins</label>
+                            <input type="number" id="prod-price" required placeholder="Ex.: 200">
+                        </div>
+                        <div class="form-group">
+                            <label>Estoque Inicial</label>
+                            <input type="number" id="prod-stock" required placeholder="Ex.: 5">
+                        </div>
+                        <button type="submit" class="btn-primary btn-purple">Adicionar ao Bazar</button>
+                    </form>
+                </div>
+
+                <!-- GERENCIAR MEMBROS DO CLUBE -->
+                <div class="card">
+                    <h3>👥 Membros Cadastrados</h3>
+                    <div id="admin-members-list"></div>
+                </div>
+
+            </div>
+
+            <!-- NAVEGAÇÃO INFERIOR -->
+            <nav class="nav-bar">
+                <button class="nav-btn active" onclick="switchTab('carteira', this)">Carteira</button>
+                <button class="nav-btn" onclick="switchTab('ranking', this)">📊 Ranking</button>
+                <button class="nav-btn" onclick="switchTab('conselheiro', this)">Conselheiro</button>
+                <button class="nav-btn" onclick="switchTab('bazar', this)">Bazar</button>
+                <button class="nav-btn" id="nav-admin-btn" style="display: none; color: var(--purple);" onclick="switchTab('admin', this)">⚙️ Admin</button>
+            </nav>
+
+        </div>
+
+    </div>
+
+    <script>
+        // CONFIGURAÇÃO DO ENDPOINT (GOOGLE APPS SCRIPT)
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzjAR1H5aVeoRZHz67lA7LzynvbixlBvvubN1BPXw9acHgiW55vGwtM36ar8T-kE6Y/exec";
+
+        let currentChartViewMode = 'desbravador';
+
+        // DEFINIÇÕES E DADOS PADRÃO
+        const defaultUnits = ['Órion', 'Plêiades', 'Crux', 'Diretoria'];
+
+        const defaultUsers = [
+            { name: 'Diretor Roberto', email: 'admin@email.com', pass: '123456', unit: 'Diretoria', role: 'admin', balance: 0 },
+            { name: 'Carlos Andrade', email: 'carlos@email.com', pass: '123456', unit: 'Órion', role: 'conselheiro', balance: 0 },
+            { name: 'Sofia Oliveira', email: 'sofia@email.com', pass: '123456', unit: 'Plêiades', role: 'desbravador', balance: 225 },
+            { name: 'Gabriel Silva', email: 'gabriel@email.com', pass: '123456', unit: 'Órion', role: 'desbravador', balance: 225 },
+            { name: 'Matheus Lima', email: 'matheus@email.com', pass: '123456', unit: 'Órion', role: 'desbravador', balance: 115 },
+            { name: 'Julia Costa', email: 'julia@email.com', pass: '123456', unit: 'Plêiades', role: 'desbravador', balance: 105 },
+            { name: 'Lucas Mendes', email: 'lucas@email.com', pass: '123456', unit: 'Órion', role: 'desbravador', balance: 100 },
+            { name: 'Beatriz Santos', email: 'beatriz@email.com', pass: '123456', unit: 'Plêiades', role: 'desbravador', balance: 90 }
+        ];
+
+        const defaultTx = [
+            { userEmail: 'gabriel@email.com', desc: 'Pontuação Semanal', amount: '+125 DBV', date: '05/10/2026' },
+            { userEmail: 'gabriel@email.com', desc: 'Saldo Inicial', amount: '+100 DBV', date: '01/10/2026' },
+            { userEmail: 'sofia@email.com', desc: 'Pontuação Semanal', amount: '+125 DBV', date: '05/10/2026' }
+        ];
+
+        const defaultProducts = [
+            { id: 1, name: 'Prendedor de Lenço 3D - Calebe', price: 150, stock: 10 },
+            { id: 2, name: 'Pin - VI Campori DSA', price: 200, stock: 15 },
+            { id: 3, name: 'Trunfo Comemorativo', price: 120, stock: 20 },
+            { id: 4, name: 'Bússola de Bolso Aço Inox', price: 250, stock: 5 },
+            { id: 5, name: 'Chaveiro DBV Giratório', price: 100, stock: 25 }
+        ];
+
+        // BANCO DE DADOS ONLINE (GOOGLE SHEETS / APPS SCRIPT)
+        // O estado abaixo vive apenas na memória da página. O banco oficial é o Google Sheets.
+        let cloudData = { units: [], users: [], transactions: [], products: [] };
+        let currentUser = null;
+
+        function getUnits() { return cloudData.units || []; }
+        function getUsers() { return cloudData.users || []; }
+        function getTx() { return cloudData.transactions || []; }
+        function getProducts() { return cloudData.products || []; }
+        function getCurrentUser() { return currentUser; }
+        function setCurrentUser(user) { currentUser = user || null; }
+
+        async function syncDataFromSheets(keepUser = true) {
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=get_all&t=${Date.now()}`, { cache: 'no-store' });
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message || 'Falha ao carregar os dados.');
+
+                cloudData = {
+                    units: Array.isArray(result.units) ? result.units : [],
+                    users: Array.isArray(result.users) ? result.users : [],
+                    transactions: Array.isArray(result.transactions) ? result.transactions : [],
+                    products: Array.isArray(result.products) ? result.products : []
+                };
+
+                if (keepUser && currentUser) {
+                    const freshUser = cloudData.users.find(u => u.email === currentUser.email);
+                    currentUser = freshUser || null;
+                }
+                renderApp();
+                return true;
+            } catch (err) {
+                console.error('Erro ao carregar banco online:', err);
+                alert('Não foi possível conectar ao banco online. Verifique sua internet e a configuração do Apps Script.');
+                return false;
+            }
+        }
+
+        // Envia uma operação ao Apps Script. O servidor grava no Google Sheets e
+        // em seguida o frontend recarrega o estado oficial, evitando divergência local.
+        async function sendToSheets(action, payload = {}) {
+            try {
+                const params = new URLSearchParams({
+                    action,
+                    data: JSON.stringify(payload),
+                    t: String(Date.now())
+                });
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`, { cache: 'no-store' });
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message || 'Operação recusada.');
+                await syncDataFromSheets();
+                return true;
+            } catch (err) {
+                console.error('Erro ao salvar no banco online:', err);
+                alert(`Não foi possível salvar online: ${err.message}`);
+                return false;
+            }
+        }
+
+        // RENDERIZAR OPÇÕES DE UNIDADES
+        function renderUnitSelects() {
+            const units = getUnits();
+            const regSelect = document.getElementById('reg-unit');
+            const adminRegSelect = document.getElementById('admin-reg-unit');
+
+            if (regSelect) regSelect.innerHTML = '';
+            if (adminRegSelect) adminRegSelect.innerHTML = '';
+
+            units.forEach(unit => {
+                if (regSelect) regSelect.innerHTML += `<option value="${unit}">Unidade ${unit}</option>`;
+                if (adminRegSelect) adminRegSelect.innerHTML += `<option value="${unit}">Unidade ${unit}</option>`;
+            });
+
+            const adminUnitsList = document.getElementById('admin-units-list');
+            if (adminUnitsList) {
+                adminUnitsList.innerHTML = '';
+                units.forEach(unit => {
+                    adminUnitsList.innerHTML += `
+                        <div class="list-item">
+                            <span>Unidade <strong>${unit}</strong></span>
+                            <button class="btn-danger" onclick="deleteUnit('${unit}')">Remover</button>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // CADASTRO DE NOVA UNIDADE
+        document.getElementById('form-admin-register-unit').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const unitName = document.getElementById('unit-name-input').value.trim();
+            if (!unitName) return;
+
+            const units = getUnits();
+            if (units.includes(unitName)) {
+                alert('Esta unidade já está cadastrada!');
+                return;
+            }
+
+            if (await sendToSheets('add_unit', { name: unitName })) {
+                alert(`Unidade "${unitName}" cadastrada com sucesso!`);
+                document.getElementById('form-admin-register-unit').reset();
+            }
+        });
+
+        // REMOVER UNIDADE
+        async function deleteUnit(unitName) {
+            const users = getUsers();
+            const usersInUnit = users.filter(u => u.unit === unitName);
+            if (usersInUnit.length > 0) {
+                alert(`Não é possível remover a Unidade "${unitName}" pois existem membros vinculados!`);
+                return;
+            }
+            if (confirm(`Remover a Unidade "${unitName}"?`)) {
+                await sendToSheets('delete_unit', { name: unitName });
+            }
+        }
+
+        // ALTERNAR VISÃO DO GRÁFICO
+        function setChartViewMode(mode) {
+            currentChartViewMode = mode;
+            document.getElementById('view-ind-btn').classList.toggle('active', mode === 'desbravador');
+            document.getElementById('view-unit-btn').classList.toggle('active', mode === 'unidade');
+            renderPerformanceChart();
+        }
+
+        // ALTERNAR LOGIN / CADASTRO
+        function toggleAuthMode(mode) {
+            document.getElementById('tab-login-btn').classList.toggle('active', mode === 'login');
+            document.getElementById('tab-register-btn').classList.toggle('active', mode === 'register');
+            document.getElementById('form-login').style.display = mode === 'login' ? 'block' : 'none';
+            document.getElementById('form-register').style.display = mode === 'register' ? 'block' : 'none';
+        }
+
+        // AUTOCADASTRO
+        document.getElementById('form-register').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value.toLowerCase().trim();
+            const pass = document.getElementById('reg-password').value;
+            const unit = document.getElementById('reg-unit').value;
+            const role = document.getElementById('reg-role').value;
+
+            const users = getUsers();
+            if (users.find(u => u.email === email)) {
+                alert('E-mail já cadastrado!');
+                return;
+            }
+
+            const newUser = { name, email, pass, unit, role, balance: 0 };
+            if (await sendToSheets('add_user', newUser)) {
+                if (role === 'desbravador') {
+                    await sendToSheets('add_transaction', { userEmail: email, desc: 'Bônus de Boas-Vindas', amount: '+100 DBV', date: 'Hoje' });
+                }
+                alert('Conta criada com sucesso!');
+                toggleAuthMode('login');
+            }
+        });
+
+        // CADASTRO DE MEMBRO PELO ADMIN
+        document.getElementById('form-admin-register-member').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('admin-reg-name').value;
+            const email = document.getElementById('admin-reg-email').value.toLowerCase().trim();
+            const pass = document.getElementById('admin-reg-pass').value;
+            const unit = document.getElementById('admin-reg-unit').value;
+            const role = document.getElementById('admin-reg-role').value;
+            const initialBalance = parseInt(document.getElementById('admin-reg-balance').value) || 0;
+
+            let users = getUsers();
+            if (users.find(u => u.email === email)) {
+                alert('E-mail já cadastrado no sistema!');
+                return;
+            }
+
+            const newUser = { name, email, pass, unit, role, balance: 0 };
+            if (await sendToSheets('add_user', newUser)) {
+                if (initialBalance > 0) {
+                    await sendToSheets('add_transaction', { userEmail: email, desc: 'Saldo Inicial (Cadastro Diretoria)', amount: `+${initialBalance} DBV`, date: 'Hoje' });
+                }
+                alert(`Desbravador "${name}" cadastrado com sucesso!`);
+                document.getElementById('form-admin-register-member').reset();
+                document.getElementById('admin-reg-pass').value = '123456';
+                document.getElementById('admin-reg-balance').value = '100';
+            }
+        });
+
+        // LOGIN
+        document.getElementById('form-login').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value.toLowerCase().trim();
+            const pass = document.getElementById('login-password').value;
+            try {
+                const params = new URLSearchParams({ action: 'login', email, pass, t: String(Date.now()) });
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`, { cache: 'no-store' });
+                const result = await response.json();
+                if (result.status !== 'success' || !result.user) {
+                    alert('E-mail ou senha incorretos!');
+                    return;
+                }
+                setCurrentUser(result.user);
+                await syncDataFromSheets();
+            } catch (err) {
+                alert('Erro ao entrar. Verifique a conexão com o banco online.');
+            }
+        });
+
+        // LOGOUT
+        function logout() {
+            setCurrentUser(null);
+            renderApp();
+        }
+
+        // EXCLUIR USUÁRIO (ADMIN)
+        async function deleteUser(email) {
+            const currentUser = getCurrentUser();
+            if (email === currentUser.email) {
+                alert('Você não pode excluir a sua própria conta logada!');
+                return;
+            }
+
+            if (confirm(`Tem certeza que deseja remover o membro ${email}?`)) {
+                await sendToSheets('delete_user', { email });
+            }
+        }
+
+        // GRÁFICO DINÂMICO
+        function renderPerformanceChart() {
+            const users = getUsers().filter(u => u.role === 'desbravador');
+            const container = document.getElementById('performance-chart-container');
+            container.innerHTML = '';
+
+            if (users.length === 0) {
+                container.innerHTML = '<p style="font-size:0.85rem; color:#6b7280;">Nenhum desbravador cadastrado.</p>';
+                return;
+            }
+
+            if (currentChartViewMode === 'desbravador') {
+                users.sort((a, b) => b.balance - a.balance);
+                const maxBalance = Math.max(...users.map(u => u.balance), 150);
+
+                users.forEach(u => {
+                    const percentage = Math.min(Math.round((u.balance / maxBalance) * 100), 100);
+                    const isVerde = u.balance >= 100;
+                    const barColor = isVerde ? 'var(--success)' : 'var(--warning)';
+
+                    container.innerHTML += `
+                        <div style="margin-bottom: 14px;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600; margin-bottom:4px;">
+                                <span>${u.name} <small style="color:#6b7280;">(${u.unit})</small></span>
+                                <span style="color:${barColor}; font-weight:bold;">${u.balance} DBV</span>
+                            </div>
+                            <div class="chart-bar-container">
+                                <div class="chart-bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                const units = {};
+                users.forEach(u => {
+                    if (!units[u.unit]) units[u.unit] = { total: 0, count: 0 };
+                    units[u.unit].total += u.balance;
+                    units[u.unit].count += 1;
+                });
+
+                const unitList = Object.keys(units).map(unitName => {
+                    const avg = Math.round((units[unitName].total / units[unitName].count) * 10) / 10;
+                    return { name: unitName, avg: avg, count: units[unitName].count };
+                });
+
+                unitList.sort((a, b) => b.avg - a.avg);
+                const maxAvg = Math.max(...unitList.map(u => u.avg), 150);
+
+                unitList.forEach(u => {
+                    const percentage = Math.min(Math.round((u.avg / maxAvg) * 100), 100);
+                    const isVerde = u.avg >= 100;
+                    const barColor = isVerde ? 'var(--success)' : 'var(--warning)';
+
+                    container.innerHTML += `
+                        <div style="margin-bottom: 16px;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600; margin-bottom:4px;">
+                                <span>Unidade ${u.name} <small style="color:#6b7280;">(${u.count} membros)</small></span>
+                                <span style="color:${barColor}; font-weight:bold;">Média: ${u.avg} DBV</span>
+                            </div>
+                            <div class="chart-bar-container">
+                                <div class="chart-bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // RENDERIZAÇÃO GERAL DA APLICAÇÃO
+        function renderApp() {
+            renderUnitSelects();
+            const currentUser = getCurrentUser();
+
+            if (!currentUser) {
+                document.getElementById('section-auth').style.display = 'block';
+                document.getElementById('section-app').style.display = 'none';
+                document.getElementById('user-info').innerHTML = '';
+                return;
+            }
+
+            document.getElementById('section-auth').style.display = 'none';
+            document.getElementById('section-app').style.display = 'block';
+
+            const users = getUsers();
+            const updatedUser = users.find(u => u.email === currentUser.email) || currentUser;
+
+            document.getElementById('user-info').innerHTML = `
+                <span>${updatedUser.name} (${updatedUser.role})</span>
+                <button class="btn-logout" onclick="logout()">Sair</button>
+            `;
+
+            // Carteira
+            document.getElementById('wallet-username').innerText = `Carteira de ${updatedUser.name}`;
+            document.getElementById('user-balance').innerText = `${updatedUser.balance} DBV`;
+            document.getElementById('unit-status').innerText = `Unidade ${updatedUser.unit}`;
+
+            // Histórico
+            const allTx = getTx();
+            const userTx = allTx.filter(t => t.userEmail === updatedUser.email);
+            const txContainer = document.getElementById('tx-history');
+            txContainer.innerHTML = userTx.length === 0 ? '<p style="font-size:0.85rem; color:#6b7280;">Sem movimentações.</p>' : '';
+            userTx.forEach(t => {
+                txContainer.innerHTML += `
+                    <div class="list-item">
+                        <div><strong>${t.desc}</strong><br><small style="color: #6b7280;">${t.date}</small></div>
+                        <span style="font-weight: bold; color: ${t.amount.startsWith('+') ? '#16a34a' : '#dc2626'}">${t.amount}</span>
+                    </div>
+                `;
+            });
+
+            // Renderizar Gráfico
+            renderPerformanceChart();
+
+            // Select Conselheiro e Admin
+            const memberSelect = document.getElementById('eval-member');
+            const adminUserSelect = document.getElementById('admin-adjust-user');
+            if (memberSelect) memberSelect.innerHTML = '';
+            if (adminUserSelect) adminUserSelect.innerHTML = '';
+
+            users.forEach(u => {
+                if (u.role === 'desbravador' && memberSelect) {
+                    memberSelect.innerHTML += `<option value="${u.email}">${u.name} (${u.unit})</option>`;
+                }
+                if (adminUserSelect) {
+                    adminUserSelect.innerHTML += `<option value="${u.email}">${u.name} [${u.role}] - Saldo: ${u.balance} DBV</option>`;
+                }
+            });
+
+            // Renderizar Bazar
+            renderBazar();
+
+            // Menu e Recursos do Admin
+            const isAdmin = updatedUser.role === 'admin';
+            document.getElementById('nav-admin-btn').style.display = isAdmin ? 'block' : 'none';
+
+            if (isAdmin) {
+                const totalCoins = users.reduce((acc, u) => acc + (u.balance || 0), 0);
+                document.getElementById('stat-total-coins').innerText = totalCoins;
+                document.getElementById('stat-total-users').innerText = users.length;
+
+                // Renderizar Lista de Membros
+                const membersContainer = document.getElementById('admin-members-list');
+                if (membersContainer) {
+                    membersContainer.innerHTML = '';
+                    users.forEach(u => {
+                        membersContainer.innerHTML += `
+                            <div class="list-item">
+                                <div>
+                                    <strong>${u.name}</strong> (${u.unit})<br>
+                                    <small style="color: #6b7280;">${u.email} | Perfil: <strong>${u.role}</strong> | Saldo: ${u.balance} DBV</small>
+                                </div>
+                                <button class="btn-danger" onclick="deleteUser('${u.email}')">Excluir</button>
+                            </div>
+                        `;
+                    });
+                }
+            }
+        }
+
+        // RENDERIZAR BAZAR
+        function renderBazar() {
+            const products = getProducts();
+            const container = document.getElementById('bazar-products-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            products.forEach(p => {
+                container.innerHTML += `
+                    <div class="list-item">
+                        <div>
+                            <strong>${p.name}</strong><br>
+                            <small style="color: #6b7280;">${p.price} DBV Coins | Estoque: ${p.stock}</small>
+                        </div>
+                        <button class="btn-primary" style="width: auto; padding: 6px 12px;" onclick="redeemItem('${p.name}', ${p.price}, ${p.id})">Resgatar</button>
+                    </div>
+                `;
+            });
+        }
+
+        // NAVEGAÇÃO DE ABAS
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabName).style.display = 'block';
+            btn.classList.add('active');
+        }
+
+        // AVALIAÇÃO DO CONSELHEIRO
+        document.getElementById('eval-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const currentUser = getCurrentUser();
+            if (currentUser.role !== 'conselheiro' && currentUser.role !== 'admin') {
+                alert('Apenas conselheiros ou diretores podem lançar notas!');
+                return;
+            }
+
+            const targetEmail = document.getElementById('eval-member').value;
+            const total = parseInt(document.getElementById('pts-pontualidade').value) +
+                          parseInt(document.getElementById('pts-biblia').value) +
+                          parseInt(document.getElementById('pts-uniforme').value) +
+                          parseInt(document.getElementById('pts-material').value) +
+                          parseInt(document.getElementById('pts-disciplina').value) +
+                          parseInt(document.getElementById('pts-social').value);
+
+            let users = getUsers();
+            let targetUser = users.find(u => u.email === targetEmail);
+
+            if (targetUser) {
+                const evalTx = { userEmail: targetEmail, desc: 'Pontuação Cantinho da Unidade', amount: `+${total} DBV`, date: 'Hoje' };
+                if (await sendToSheets('add_transaction', evalTx)) {
+                    alert(`Creditas ${total} DBV Coins para ${targetUser.name}!`);
+                }
+            }
+        });
+
+        // AJUSTE MANUAL DO ADMIN
+        document.getElementById('form-admin-adjust').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const targetEmail = document.getElementById('admin-adjust-user').value;
+            const amount = parseInt(document.getElementById('admin-adjust-amount').value);
+            const reason = document.getElementById('admin-adjust-reason').value;
+
+            let users = getUsers();
+            let targetUser = users.find(u => u.email === targetEmail);
+
+            if (targetUser) {
+                const sign = amount >= 0 ? '+' : '';
+                const adjustTx = { userEmail: targetEmail, desc: `Ajuste Diretoria: ${reason}`, amount: `${sign}${amount} DBV`, date: 'Hoje' };
+                if (await sendToSheets('add_transaction', adjustTx)) {
+                    alert(`Saldo de ${targetUser.name} alterado com sucesso!`);
+                    document.getElementById('form-admin-adjust').reset();
+                }
+            }
+        });
+
+        // CADASTRAR PRODUTO NO BAZAR (ADMIN)
+        document.getElementById('form-admin-product').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('prod-name').value;
+            const price = parseInt(document.getElementById('prod-price').value);
+            const stock = parseInt(document.getElementById('prod-stock').value);
+
+            let products = getProducts();
+            const newProduct = { id: Date.now(), name, price, stock };
+            if (await sendToSheets('add_product', newProduct)) {
+                alert(`Produto "${name}" adicionado ao Bazar!`);
+                document.getElementById('form-admin-product').reset();
+            }
+        });
+
+        // RESGATE NO BAZAR
+        async function redeemItem(itemName, cost, prodId) {
+            const currentUser = getCurrentUser();
+            let users = getUsers();
+            let user = users.find(u => u.email === currentUser.email);
+
+            if (!user) return;
+
+            if (user.balance < cost) {
+                alert('Saldo insuficiente!');
+                return;
+            }
+
+            let products = getProducts();
+            let product = products.find(p => p.id === prodId);
+
+            if (product && product.stock <= 0) {
+                alert('Produto esgotado!');
+                return;
+            }
+
+            if (confirm(`Confirmar resgate de "${itemName}" por ${cost} DBV Coins?`)) {
+                const redeemTx = { userEmail: user.email, desc: `Resgate Bazar: ${itemName}`, amount: `-${cost} DBV`, date: 'Hoje', productId: prodId };
+                if (await sendToSheets('redeem_product', redeemTx)) {
+                    alert('Resgate efetuado com sucesso!');
+                }
+            }
+        }
+
+        // REGISTRO SERVICE WORKER E SINCRONIZAÇÃO
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
+
+        // INICIALIZAÇÃO: o banco online é a fonte oficial.
+        syncDataFromSheets(false);
+    </script>
+</body>
+</html>

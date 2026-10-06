@@ -1,0 +1,5 @@
+DBV Coin pronto para GitHub Pages.
+1) Configure code.gs no Google Apps Script.
+2) Publique o Web App e copie a URL /exec para index.html.
+3) Suba os arquivos para um repositório GitHub.
+4) Ative Settings > Pages > Deploy from branch > main > root.
