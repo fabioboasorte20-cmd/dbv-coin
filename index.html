@@ -414,7 +414,11 @@
         let cloudData = { units: [], users: [], transactions: [], products: [] };
         let currentUser = null;
 
-        function getUnits() { return cloudData.units || []; }
+        function getUnits() {
+            return (cloudData.units || [])
+                .map(unit => typeof unit === 'string' ? unit : String((unit && unit.name) || ''))
+                .filter(Boolean);
+        }
         function getUsers() { return cloudData.users || []; }
         function getTx() { return cloudData.transactions || []; }
         function getProducts() { return cloudData.products || []; }
